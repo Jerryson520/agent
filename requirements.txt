@@ -112,7 +112,7 @@ oauthlib==3.3.1
 onnxruntime==1.19.2
 openai==1.91.0
 opentelemetry-api
-opentelemetry-exporter-otlp-proto-common=
+opentelemetry-exporter-otlp-proto-common
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-proto
 opentelemetry-sdk
