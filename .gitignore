@@ -1,0 +1,14 @@
+# 环境变量配置
+.env
+
+# Python 虚拟环境
+.venv/
+venv/
+
+# 缓存与临时文件
+__pycache__/
+*.pyc
+
+# 编辑器配置
+.vscode/
+.idea/
