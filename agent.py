@@ -35,6 +35,12 @@ from langchain_core.tools import tool
 from tools import web_search, wiki_search, arxiv_search, operate
 load_dotenv()
 
+# load the system prompt from the file
+with open("./system_prompt.txt", "r", encoding="utf-8") as f:
+    system_prompt = f.read()
+# System message
+sys_msg = SystemMessage(content=system_prompt)
+
 
 # Build RAG
 metadata_path = "./data/metadata.jsonl"
@@ -100,12 +106,29 @@ def build_graph(provider: str = "groq"):
     def assistant(state: MessagesState):
         """Assistant node"""
         return {"messages": [llm_with_tools.invoke(state["messages"])]}
+    
+    def retriever(state: MessagesState):
+        """Retriever Node"""
+        similar_question = db.similarity_search(state["messages"][0].content) 
+        
+        if similar_question:  # Check if the list is not empty
+            example_msg = HumanMessage(
+                content=f"Here I provide a similar question and answer for reference: \n\n{similar_question[0].page_content}",
+            )
+            return {"messages": [sys_msg] + state["messages"] + [example_msg]}
+        else:
+            # Handle the case when no similar questions are found
+            return {"messages": [sys_msg] + state["messages"]}
+              
 
     builder = StateGraph(MessagesState)
     builder.add_node("assistant", assistant)
+    builder.add_node("retriever", retriever)
     builder.add_node("tools", ToolNode(tools))
-    
-    builder.add_edge(START, "assistant")
+
+    # add edges
+    builder.add_edge(START, "retriever")
+    builder.add_edge("retriever", "assistant")
     builder.add_conditional_edges(
         "assistant",
         tools_condition,
@@ -114,7 +137,6 @@ def build_graph(provider: str = "groq"):
 
     # Compile graph
     return builder.compile()
-
 
 
 # test
