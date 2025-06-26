@@ -1,7 +1,7 @@
 # tools.py
 import os
 from dotenv import load_dotenv
-from typing import List, Dict
+from typing import List, Dict, Union
 
 
 from langchain_core.documents import Document
@@ -170,7 +170,7 @@ def operate(
     
     
 @tool
-def square_root(a: float) -> float | complex:
+def square_root(a: float) -> Union[float, complex]:
     """
     Compute the square root of a number, supporting both real and complex results.
 
