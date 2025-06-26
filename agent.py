@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from langchain.embeddings.base import Embeddings
 from langchain.schema import Document
 import json
+from contextlib import contextmanager
 
 import cmath
 import pandas as pd
@@ -64,13 +65,21 @@ with open(metadata_path, "r", encoding='utf-8') as f:
         }
         documents.append(Document(page_content=content, metadata=metadata))
 
-embeddings = OpenAIEmbeddings()
-weaviate_client = weaviate.connect_to_weaviate_cloud(
-    cluster_url=os.getenv("WEAVIATE_URL"),
-    auth_credentials=Auth.api_key(os.getenv("WEAVIATE_API_KEY"))
-)
-db = WeaviateVectorStore.from_documents(documents, embeddings, client=weaviate_client)
 
+@contextmanager
+def weaviate_vectorstore_context(documents, embeddings):
+    weaviate_client = weaviate.connect_to_weaviate_cloud(
+        cluster_url=os.getenv("WEAVIATE_URL"),
+        auth_credentials=Auth.api_key(os.getenv("WEAVIATE_API_KEY"))    
+    )
+    try:
+        db = WeaviateVectorStore.from_documents(documents, embeddings, client=weaviate_client)
+        yield db
+    finally:
+        weaviate_client.close()
+        
+        
+embeddings = OpenAIEmbeddings()
 
 tools = [
     web_search,
@@ -109,17 +118,18 @@ def build_graph(provider: str = "groq"):
     
     def retriever(state: MessagesState):
         """Retriever Node"""
-        similar_question = db.similarity_search(state["messages"][0].content) 
-        
-        if similar_question:  # Check if the list is not empty
-            example_msg = HumanMessage(
-                content=f"Here I provide a similar question and answer for reference: \n\n{similar_question[0].page_content}",
-            )
-            return {"messages": [sys_msg] + state["messages"] + [example_msg]}
-        else:
-            # Handle the case when no similar questions are found
-            return {"messages": [sys_msg] + state["messages"]}
-              
+        with weaviate_vectorstore_context(documents, embeddings) as db:
+            similar_question = db.similarity_search(state["messages"][0].content) 
+            
+            if similar_question:  # Check if the list is not empty
+                example_msg = HumanMessage(
+                    content=f"Here I provide a similar question and answer for reference: \n\n{similar_question[0].page_content}",
+                )
+                return {"messages": [sys_msg] + state["messages"] + [example_msg]}
+            else:
+                # Handle the case when no similar questions are found
+                return {"messages": [sys_msg] + state["messages"]}
+                
 
     builder = StateGraph(MessagesState)
     builder.add_node("assistant", assistant)
@@ -141,7 +151,8 @@ def build_graph(provider: str = "groq"):
 
 # test
 if __name__ == "__main__":
-    question = "When was a picture of St. Thomas Aquinas first added to the Wikipedia page on the Principle of double effect?"
+    # question = "When was a picture of St. Thomas Aquinas first added to the Wikipedia page on the Principle of double effect?"
+    question = "What is the hometown of this year’s 16th overall pick in the NBA draft?"
     graph = build_graph(provider="groq")
     messages = [HumanMessage(content=question)]
     messages = graph.invoke({"messages": messages})
