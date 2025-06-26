@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
+from langchain.embeddings.base import Embeddings
+from langchain.schema import Document
 import json
 
 import cmath
@@ -11,6 +13,13 @@ from langgraph.graph import START, StateGraph, MessagesState
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.document_loaders import WikipediaLoader
 from langchain_community.document_loaders import ArxivLoader
+
+# Import VecDB 
+import weaviate
+from langchain_weaviate.vectorstores import WeaviateVectorStore
+from weaviate.classes.init import Auth
+from langchain_openai import OpenAIEmbeddings
+
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from langchain_huggingface import (
@@ -24,9 +33,37 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 
 from tools import web_search, wiki_search, arxiv_search, operate
-
-
 load_dotenv()
+
+
+# Build RAG
+metadata_path = "./data/metadata.jsonl"
+documents = []
+with open(metadata_path, "r", encoding='utf-8') as f:
+    for line in f:
+        item = json.loads(line)
+        questions = item['Question']
+        steps = item['Annotator Metadata'].get('Steps', "")
+        final_answer = item['Final answer']            
+        content = f"{questions}\n\n{steps}\n\nFinal Answer: {final_answer}"
+        # contents.append(content)
+        metadata = {
+            "task_id": item.get("task_id", ""),
+            "level": item.get("Level", ""),
+            "final_answer": item.get("Final answer", ""),
+            "num_steps": item["Annotator Metadata"].get("Number of steps", ""),
+            "tools": item["Annotator Metadata"].get("Tools", ""),
+            "num_tools": item["Annotator Metadata"].get("Number of tools", ""),
+            "time_taken": item["Annotator Metadata"].get("How long did this take?"),
+        }
+        documents.append(Document(page_content=content, metadata=metadata))
+
+embeddings = OpenAIEmbeddings()
+weaviate_client = weaviate.connect_to_weaviate_cloud(
+    cluster_url=os.getenv("WEAVIATE_URL"),
+    auth_credentials=Auth.api_key(os.getenv("WEAVIATE_API_KEY"))
+)
+db = WeaviateVectorStore.from_documents(documents, embeddings, client=weaviate_client)
 
 
 tools = [
