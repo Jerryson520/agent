@@ -1,15 +1,18 @@
 import json
 import os 
 from dotenv import load_dotenv
+from dotenv import load_dotenv
 from langchain.schema import Document
 from contextlib import contextmanager
 import weaviate
 from weaviate.classes.init import Auth
 from langchain_weaviate.vectorstores import WeaviateVectorStore
 from langchain_openai import OpenAIEmbeddings
+load_dotenv()
+root = os.getenv("PROJECT_ROOT")
 
 # Build RAG
-metadata_path = "./data/metadata.jsonl"
+metadata_path = os.path.join(root, "data/metadata.jsonl")
 documents = []
 with open(metadata_path, "r", encoding='utf-8') as f:
     for line in f:

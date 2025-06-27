@@ -26,20 +26,20 @@ from tools import (
         analyze_csv_file, analyze_excel_file,
     )
 from retriever import retriever
-
 load_dotenv()
+root = os.getenv("PROJECT_ROOT")
     
 def get_llm(provider: str = "groq"):
     # Load environment variables from .env file
     if provider == "google":
         # Google Gemini
-        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+        return ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
     elif provider == "groq":
         # Groq https://console.groq.com/docs/models
-        llm = ChatGroq(model="qwen-qwq-32b", temperature=0) # optional : qwen-qwq-32b gemma2-9b-it
+        return ChatGroq(model="qwen-qwq-32b", temperature=0) # optional : qwen-qwq-32b gemma2-9b-it
     elif provider == "huggingface":
         # TODO: Add huggingface endpoint
-        llm = ChatHuggingFace(
+        return ChatHuggingFace(
             llm=HuggingFaceEndpoint(
                 url="https://api-inference.huggingface.co/models/Meta-DeepLearning/llama-2-7b-chat-hf",
                 temperature=0,
@@ -69,7 +69,7 @@ def retrieve_assistant(state: MessagesState):
     
 
 # load the system prompt from the file
-with open("./system_prompt.txt", "r", encoding="utf-8") as f:
+with open(os.path.join(root, "prompts/system_prompt.txt"), "r", encoding="utf-8") as f:
     system_prompt = f.read()
 # System message
 sys_msg = SystemMessage(content=system_prompt)
