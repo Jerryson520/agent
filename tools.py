@@ -312,21 +312,21 @@ def analyze_excel_file(file_path: str, query: str) -> str:
         return f"Error analyzing Excel file: {str(e)}"
 
 ### ============== IMAGE PROCESSING AND GENERATION TOOLS =============== ###
-@tool
-def analyze_image(image_base64: str) -> Dict[str: Any]:
-    """
-    Analyze basic properties of an image (size, mode, color analysis, thumbnail preview).
-    Args:
-        image_base64 (str): Base64 encoded image string
-    Returns:
-        Dictionary with analysis result
-    """
-    try:
-        img = decode_image(image_base64)
-        width, height = img.size
-        mode = img.mode
+# @tool
+# def analyze_image(image_base64: str) -> Dict[str: Any]:
+#     """
+#     Analyze basic properties of an image (size, mode, color analysis, thumbnail preview).
+#     Args:
+#         image_base64 (str): Base64 encoded image string
+#     Returns:
+#         Dictionary with analysis result
+#     """
+#     try:
+#         img = decode_image(image_base64)
+#         width, height = img.size
+#         mode = img.mode
         
-        if mode in ("RGB")
+#         if mode in ("RGB")
 
 
 if __name__ == "__main__":

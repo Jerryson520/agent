@@ -1,96 +1,35 @@
 import os
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
-from langchain.embeddings.base import Embeddings
-from langchain.schema import Document
 import json
-from contextlib import contextmanager
 
 import cmath
 import pandas as pd
 import numpy as np
 
 from langgraph.graph import START, StateGraph, MessagesState
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_community.document_loaders import WikipediaLoader
-from langchain_community.document_loaders import ArxivLoader
-
-# Import VecDB 
-import weaviate
-from langchain_weaviate.vectorstores import WeaviateVectorStore
-from weaviate.classes.init import Auth
-from langchain_openai import OpenAIEmbeddings
-
 from langgraph.prebuilt import ToolNode, tools_condition
-
 from langchain_huggingface import (
     ChatHuggingFace,
     HuggingFaceEndpoint,
 )
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
-
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
+from langchain.tools import Tool
 
-from tools import web_search, wiki_search, arxiv_search, operate
-load_dotenv()
-
-# load the system prompt from the file
-with open("./system_prompt.txt", "r", encoding="utf-8") as f:
-    system_prompt = f.read()
-# System message
-sys_msg = SystemMessage(content=system_prompt)
-
-
-# Build RAG
-metadata_path = "./data/metadata.jsonl"
-documents = []
-with open(metadata_path, "r", encoding='utf-8') as f:
-    for line in f:
-        item = json.loads(line)
-        questions = item['Question']
-        steps = item['Annotator Metadata'].get('Steps', "")
-        final_answer = item['Final answer']            
-        content = f"{questions}\n\n{steps}\n\nFinal Answer: {final_answer}"
-        # contents.append(content)
-        metadata = {
-            "task_id": item.get("task_id", ""),
-            "level": item.get("Level", ""),
-            "final_answer": item.get("Final answer", ""),
-            "num_steps": item["Annotator Metadata"].get("Number of steps", ""),
-            "tools": item["Annotator Metadata"].get("Tools", ""),
-            "num_tools": item["Annotator Metadata"].get("Number of tools", ""),
-            "time_taken": item["Annotator Metadata"].get("How long did this take?"),
-        }
-        documents.append(Document(page_content=content, metadata=metadata))
-
-
-@contextmanager
-def weaviate_vectorstore_context(documents, embeddings):
-    weaviate_client = weaviate.connect_to_weaviate_cloud(
-        cluster_url=os.getenv("WEAVIATE_URL"),
-        auth_credentials=Auth.api_key(os.getenv("WEAVIATE_API_KEY"))    
+from tools import (
+        web_search, wiki_search, arxiv_search, 
+        operate, square_root, save_path_read_file, 
+        download_file_from_url, extract_text_from_image, 
+        analyze_csv_file, analyze_excel_file,
     )
-    try:
-        db = WeaviateVectorStore.from_documents(documents, embeddings, client=weaviate_client)
-        yield db
-    finally:
-        weaviate_client.close()
-        
-        
-embeddings = OpenAIEmbeddings()
+from retriever import retriever
 
-tools = [
-    web_search,
-    wiki_search,
-    arxiv_search,
-    operate,
-]
-
-# Build graph function
-def build_graph(provider: str = "groq"):
-    """Build the graph"""
+load_dotenv()
+    
+def get_llm(provider: str = "groq"):
     # Load environment variables from .env file
     if provider == "google":
         # Google Gemini
@@ -108,37 +47,63 @@ def build_graph(provider: str = "groq"):
         )
     else:
         raise ValueError("Invalid provider. Choose 'google', 'groq' or 'huggingface'.")
-    # Bind tools to LLM
-    llm_with_tools = llm.bind_tools(tools)
 
-    # Node
-    def assistant(state: MessagesState):
-        """Assistant node"""
-        return {"messages": [llm_with_tools.invoke(state["messages"])]}
+# Node
+def assistant(state: MessagesState):
+    """Assistant node"""
+    return {"messages": [llm_with_tools.invoke(state["messages"])]}
+
+
+def retrieve_assistant(state: MessagesState):
+    """Retriever Node"""
+    similar_question = retriever(state["messages"][0].content) 
     
-    def retriever(state: MessagesState):
-        """Retriever Node"""
-        with weaviate_vectorstore_context(documents, embeddings) as db:
-            similar_question = db.similarity_search(state["messages"][0].content) 
-            
-            if similar_question:  # Check if the list is not empty
-                example_msg = HumanMessage(
-                    content=f"Here I provide a similar question and answer for reference: \n\n{similar_question[0].page_content}",
-                )
-                return {"messages": [sys_msg] + state["messages"] + [example_msg]}
-            else:
-                # Handle the case when no similar questions are found
-                return {"messages": [sys_msg] + state["messages"]}
-                
+    if similar_question:  # Check if the list is not empty
+        example_msg = HumanMessage(
+            content=f"Here I provide a similar question and answer for reference: \n\n{similar_question[0].page_content}",
+        )
+        return {"messages": [sys_msg] + state["messages"] + [example_msg]}
+    else:
+        # Handle the case when no similar questions are found
+        return {"messages": [sys_msg] + state["messages"]}
+    
 
+# load the system prompt from the file
+with open("./system_prompt.txt", "r", encoding="utf-8") as f:
+    system_prompt = f.read()
+# System message
+sys_msg = SystemMessage(content=system_prompt)
+
+tools = [
+    web_search,
+    wiki_search,
+    arxiv_search,
+    operate,
+    square_root, 
+    save_path_read_file, 
+    download_file_from_url, 
+    extract_text_from_image, 
+    analyze_csv_file, 
+    analyze_excel_file,
+]
+
+llm = get_llm()
+
+# Bind tools to LLM
+llm_with_tools = llm.bind_tools(tools)
+    
+
+# Build graph function
+def build_graph(provider: str = "groq"):
+    """Build the graph"""
     builder = StateGraph(MessagesState)
     builder.add_node("assistant", assistant)
-    builder.add_node("retriever", retriever)
+    builder.add_node("retrieve_assistant", retrieve_assistant)
     builder.add_node("tools", ToolNode(tools))
 
     # add edges
-    builder.add_edge(START, "retriever")
-    builder.add_edge("retriever", "assistant")
+    builder.add_edge(START, "retrieve_assistant")
+    builder.add_edge("retrieve_assistant", "assistant")
     builder.add_conditional_edges(
         "assistant",
         tools_condition,
