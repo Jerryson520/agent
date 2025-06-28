@@ -11,6 +11,7 @@ from langchain_openai import OpenAIEmbeddings
 load_dotenv()
 root = os.getenv("PROJECT_ROOT")
 
+
 # Build RAG
 metadata_path = os.path.join(root, "data/metadata.jsonl")
 documents = []

@@ -94,7 +94,7 @@ llm_with_tools = llm.bind_tools(tools)
     
 
 # Build graph function
-def build_graph(provider: str = "groq"):
+def build_graph():
     """Build the graph"""
     builder = StateGraph(MessagesState)
     builder.add_node("assistant", assistant)
