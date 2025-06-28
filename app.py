@@ -25,11 +25,12 @@ if prompt:
             json = {"question": prompt},
         )
         try:
-            answer = response.json()['response']
+            result = response.json()
+            answer = result.get("response", "No answer received.")
+            
+            st.write("### 🤖 Final Answer:")
             st.write(answer)
+            
         except Exception as e:
             st.error(f"解析 response.json() 时出错：{e}")
             st.write(response.text)
-            
-    
-    st.session_state.messages.append({"role": "assistant", "content": response})

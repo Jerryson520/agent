@@ -12,3 +12,6 @@ __pycache__/
 # 编辑器配置
 .vscode/
 .idea/
+
+# data file
+data/2023

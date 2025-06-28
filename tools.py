@@ -10,7 +10,6 @@ from langchain_core.tools import tool
 # Tools: web_search, wiki_search, code_analysis, mathematical tools, Document processing tools, Image Loading and processing tools
 from huggingface_hub import list_models
 
-
 # Tools
 from langchain_community.document_loaders import WikipediaLoader
 from langchain_tavily import TavilySearch
@@ -56,7 +55,7 @@ def wiki_search(query: str,
 
 @tool
 def web_search(query: str,
-               max_results: int = 3,
+               max_results: int = 1,
                include_answer: bool = False,
                include_images: bool = False) -> Dict[str, List[Dict]]:
     """
@@ -64,7 +63,7 @@ def web_search(query: str,
 
     Args:
         query:  The search query
-        max_results:  How many results to fetch (default 3)
+        max_results:  How many results to fetch (default 1)
         include_answer / include_images:  Pass-through flags
     """
     tavily_tool = TavilySearch(

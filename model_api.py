@@ -18,9 +18,13 @@ def chat(query: Query):
     answer = messages["messages"][-1].content
     answer = re.findall(r"FINAL\sANSWER: (.+)", answer)
     if answer == "":
-         return {"response": "Sorry, I couldn't find a relevant answer to your question."}
+         return {
+            "response": "Sorry, I couldn't find a relevant answer to your question.",
+        }
     else:
-        return {"response": answer[0]}
+        return {
+            "response": answer[0],
+        }
     # return {"response": answer[14:]}
 
 if __name__ == "__main__":

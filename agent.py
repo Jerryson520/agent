@@ -7,6 +7,7 @@ import cmath
 import pandas as pd
 import numpy as np
 
+from langchain_core.messages import BaseMessage
 from langgraph.graph import START, StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_huggingface import (
@@ -48,10 +49,15 @@ def get_llm(provider: str = "groq"):
     else:
         raise ValueError("Invalid provider. Choose 'google', 'groq' or 'huggingface'.")
 
+
+
 # Node
 def assistant(state: MessagesState):
     """Assistant node"""
-    return {"messages": [llm_with_tools.invoke(state["messages"])]}
+    result = llm_with_tools.invoke(state["messages"])
+    return {
+        "messages": [result],
+    }
 
 
 def retrieve_assistant(state: MessagesState):
@@ -117,8 +123,10 @@ def build_graph():
 # test
 if __name__ == "__main__":
     # question = "When was a picture of St. Thomas Aquinas first added to the Wikipedia page on the Principle of double effect?"
-    question = "What is the hometown of this year’s 16th overall pick in the NBA draft?"
-    graph = build_graph(provider="groq")
+    # question = "What is the hometown of the 16th overall pick in the NBA draft in 2025?"
+    # question = "Who was the 16th overall pick in 2025 NBA Draft and where is he from?"
+    question = "Who is the only Chinese NBA draft 1st pick and where is he from?"
+    graph = build_graph()
     messages = [HumanMessage(content=question)]
     messages = graph.invoke({"messages": messages})
     for m in messages["messages"]:
