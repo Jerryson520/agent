@@ -8,9 +8,7 @@ import weaviate
 from weaviate.classes.init import Auth
 from langchain_weaviate.vectorstores import WeaviateVectorStore
 from langchain_openai import OpenAIEmbeddings
-load_dotenv()
-root = os.getenv("PROJECT_ROOT")
-
+from config import root
 
 # Build RAG
 metadata_path = os.path.join(root, "data/metadata.jsonl")

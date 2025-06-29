@@ -10,7 +10,7 @@ from langchain_openai import OpenAIEmbeddings
 import streamlit as st
 
 @st.cache_resource
-def get_vectorstore():
+def _get_vectorstore():
     client = weaviate.connect_to_weaviate_cloud(
         cluster_url=os.getenv("WEAVIATE_URL"),
         auth_credentials=Auth.api_key(os.getenv("WEAVIATE_API_KEY")),
@@ -24,7 +24,7 @@ def get_vectorstore():
         text_key='text'
     )
 
-vectorstore = get_vectorstore()
+vectorstore = _get_vectorstore()
 
 def retriever(query: str) -> str:
     return vectorstore.similarity_search(query)

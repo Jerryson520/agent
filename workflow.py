@@ -1,12 +1,15 @@
 import os
-from dotenv import load_dotenv
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Annotated
+from typing_extensions import TypedDict
 import json
-
 import cmath
 import pandas as pd
 import numpy as np
 
+from config import root, sys_msg
+from state import AgentState
+
+from llm_provider import get_llm
 from langchain_core.messages import BaseMessage
 from langgraph.graph import START, StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -27,32 +30,10 @@ from tools import (
         analyze_csv_file, analyze_excel_file,
     )
 from retriever import retriever
-load_dotenv()
-root = os.getenv("PROJECT_ROOT")
-    
-def get_llm(provider: str = "groq"):
-    # Load environment variables from .env file
-    if provider == "google":
-        # Google Gemini
-        return ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
-    elif provider == "groq":
-        # Groq https://console.groq.com/docs/models
-        return ChatGroq(model="qwen-qwq-32b", temperature=0) # optional : qwen-qwq-32b gemma2-9b-it
-    elif provider == "huggingface":
-        # TODO: Add huggingface endpoint
-        return ChatHuggingFace(
-            llm=HuggingFaceEndpoint(
-                url="https://api-inference.huggingface.co/models/Meta-DeepLearning/llama-2-7b-chat-hf",
-                temperature=0,
-            ),
-        )
-    else:
-        raise ValueError("Invalid provider. Choose 'google', 'groq' or 'huggingface'.")
-
 
 
 # Node
-def assistant(state: MessagesState):
+def assistant(state: AgentState):
     """Assistant node"""
     result = llm_with_tools.invoke(state["messages"])
     return {
@@ -60,7 +41,7 @@ def assistant(state: MessagesState):
     }
 
 
-def retrieve_assistant(state: MessagesState):
+def retrieve_assistant(state: AgentState):
     """Retriever Node"""
     similar_question = retriever(state["messages"][0].content) 
     
@@ -72,13 +53,6 @@ def retrieve_assistant(state: MessagesState):
     else:
         # Handle the case when no similar questions are found
         return {"messages": [sys_msg] + state["messages"]}
-    
-
-# load the system prompt from the file
-with open(os.path.join(root, "prompts/system_prompt.txt"), "r", encoding="utf-8") as f:
-    system_prompt = f.read()
-# System message
-sys_msg = SystemMessage(content=system_prompt)
 
 tools = [
     web_search,
@@ -94,15 +68,13 @@ tools = [
 ]
 
 llm = get_llm()
-
-# Bind tools to LLM
 llm_with_tools = llm.bind_tools(tools)
     
 
 # Build graph function
 def build_graph():
     """Build the graph"""
-    builder = StateGraph(MessagesState)
+    builder = StateGraph(AgentState)
     builder.add_node("assistant", assistant)
     builder.add_node("retrieve_assistant", retrieve_assistant)
     builder.add_node("tools", ToolNode(tools))
